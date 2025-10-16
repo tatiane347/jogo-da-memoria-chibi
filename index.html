@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jogo da Memória Chibi</title>
+  
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Variáveis CSS para fácil manutenção */
+    :root {
+      --card-size-desktop: 100px;
+      --card-gap-desktop: 15px;
+      --card-size-mobile: 80px;
+      --card-gap-mobile: 10px;
+      --primary-color: #666;
+      --hover-color: #888;
+      --background-dark: #000000;
+      --background-light: #2c2c2c;
+    }
+    
+    body {
+      background: linear-gradient(135deg, var(--background-light), var(--background-dark));
+      color: #fff;
+      font-family: 'Poppins', sans-serif;
+      text-align: center;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      overflow-x: hidden; /* Evita rolagem horizontal em mobile */
+    }
+    h1 {
+      margin-bottom: 20px;
+      font-weight: 700;
+      font-size: 2.5rem;
+    }
+    
+    /* Padrão para Desktop */
+    .game-board {
+      display: grid;
+      grid-template-columns: repeat(4, var(--card-size-desktop));
+      grid-gap: var(--card-gap-desktop);
+      justify-content: center;
+      transition: opacity 0.5s ease; /* Transição suave ao reiniciar */
+      max-width: 500px; /* Limita o tamanho máximo em telas grandes */
+    }
+    .card {
+      width: var(--card-size-desktop);
+      height: var(--card-size-desktop);
+      perspective: 1000px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      transition: transform 0.6s, box-shadow 0.4s;
+      transform-style: preserve-3d;
+    }
+
+    /* Estados das Cartas */
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+      box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), 0 0 40px rgba(255, 255, 255, 0.2);
+    }
+    .card.matched .card-inner {
+        transform: rotateY(180deg) scale(0.95);
+        opacity: 0.6;
+        box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        cursor: default;
+    }
+    
+    /* Faces das Cartas */
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 10px;
+    }
+    .card-front {
+      background-color: #444;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 0 10px rgba(255,255,255,0.2);
+    }
+    .card-back {
+      background-color: #1c1c1c;
+      transform: rotateY(180deg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 2px solid #555;
+      box-shadow: 0 0 15px rgba(255,255,255,0.1);
+    }
+    img {
+      width: 80%;
+      height: 80%;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+
+    /* Estatísticas e Botão */
+    #stats {
+      margin-top: 30px;
+      font-size: 18px;
+    }
+    button {
+      margin-top: 15px;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      transition: 0.3s;
+    }
+    button:hover {
+      background-color: var(--hover-color);
+    }
+    footer {
+      margin-top: 20px;
+      font-size: 14px;
+      color: #ccc;
+      text-shadow: 0 0 4px rgba(255,255,255,0.2);
+    }
+    
+    /* Overlay para Bloqueio de Clique durante a transição */
+    .overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0); /* Transparente, apenas para bloquear cliques */
+        z-index: 100;
+        display: none;
+    }
+    .active-overlay {
+        display: block;
+    }
+
+    /* 📱 Media Queries para Tablet e Mobile */
+    @media (max-width: 767px) {
+        h1 {
+            font-size: 1.8rem;
+        }
+        .game-board {
+            grid-template-columns: repeat(4, var(--card-size-mobile));
+            grid-gap: var(--card-gap-mobile);
+        }
+        .card {
+            width: var(--card-size-mobile);
+            height: var(--card-size-mobile);
+        }
+        #stats {
+            font-size: 16px;
+        }
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay" id="clickBlocker"></div> 
+
+  <h1>Jogo da Memória Chibi </h1>
+  <div class="game-board" id="gameBoard"></div>
+  <div id="stats">
+    <p>Movimentos: <span id="moves">0</span></p>
+    <p>Melhor Pontuação: <span id="best">0</span></p>
+    <button id="restart">Reiniciar</button>
+  </div>  
+  
+  <footer>✨ Criado por Tatiane Souza ✨</footer>  
+  
+  <script>
+    // Seletores DOM (Vanilla JS)
+    const gameBoard = document.getElementById('gameBoard');
+    const movesDisplay = document.getElementById('moves');
+    const bestDisplay = document.getElementById('best');
+    const restartButton = document.getElementById('restart');
+    const clickBlocker = document.getElementById('clickBlocker');
+
+    const images = [
+      'img/chibi1.png', 'img/chibi2.png', 'img/chibi3.png', 'img/chibi4.png',
+      'img/chibi5.png', 'img/chibi6.png', 'img/chibi7.png', 'img/chibi8.png'
+    ];
+
+    let cards = [];
+    let flippedCards = [];
+    let moves = 0;
+    let matches = 0;
+    const totalMatches = images.length; // 8 pares
+    let bestScore = localStorage.getItem('bestScoreChibi') || 0;
+
+    // Função de embaralhamento (Fisher-Yates)
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    // Cria o tabuleiro do jogo
+    function renderBoard() {
+      // Cria a lista de cartas duplicadas e embaralha
+      cards = [...images, ...images];
+      shuffle(cards);
+
+      // Limpa o tabuleiro e reseta estados
+      gameBoard.innerHTML = '';
+      moves = 0;
+      matches = 0;
+      flippedCards = [];
+      clickBlocker.classList.remove('active-overlay');
+      
+      movesDisplay.textContent = moves;
+      bestDisplay.textContent = bestScore;
+
+      // Cria os elementos DOM para as cartas
+      cards.forEach((imgSrc) => {
+        const cardElement = document.createElement('div');
+        cardElement.classList.add('card');
+        cardElement.setAttribute('data-name', imgSrc);
+        
+        cardElement.innerHTML = `
+          <div class="card-inner">
+            <div class="card-front"></div>
+            <div class="card-back"><img src="${imgSrc}" alt="chibi"></div>
+          </div>
+        `;
+        
+        // Adiciona o ouvinte de evento diretamente à carta
+        cardElement.addEventListener('click', flipCard);
+        gameBoard.appendChild(cardElement);
+      });
+    }
+
+    // Lógica para virar uma carta
+    function flipCard(event) {
+      const cardElement = event.currentTarget;
+      
+      // Checa bloqueios: já virada, já combinada, ou se o bloqueador de clique estiver ativo
+      if (cardElement.classList.contains('flipped') || cardElement.classList.contains('matched') || flippedCards.length === 2 || clickBlocker.classList.contains('active-overlay')) {
+        return;
+      }
+
+      cardElement.classList.add('flipped');
+      flippedCards.push(cardElement);
+
+      if (flippedCards.length === 2) {
+        checkMatch();
+      }
+    }
+
+    // Lógica para checar a combinação
+    function checkMatch() {
+      // Ativa o bloqueador de cliques
+      clickBlocker.classList.add('active-overlay');
+
+      const [first, second] = flippedCards;
+      
+      moves++;
+      movesDisplay.textContent = moves;
+
+      // Cartas Combinam
+      if (first.dataset.name === second.dataset.name) {
+        
+        // Mantém viradas e marca como combinadas (matched)
+        first.classList.add('matched');
+        second.classList.add('matched');
+        
+        matches++;
+        flippedCards = [];
+        
+        // Desativa o bloqueador IMEDIATAMENTE após a combinação
+        clickBlocker.classList.remove('active-overlay');
+        
+        checkWin();
+      } 
+      // Cartas NÃO combinam
+      else {
+        setTimeout(() => {
+          first.classList.remove('flipped');
+          second.classList.remove('flipped');
+          flippedCards = [];
+          
+          // Desativa o bloqueador após a animação de desvirar
+          clickBlocker.classList.remove('active-overlay');
+        }, 900); // 900ms para garantir que a animação de 600ms finalize
+      }
+    }
+
+    // Lógica de vitória
+    function checkWin() {
+        if (matches === totalMatches) {
+            
+            // Mensagem de vitória profissional
+            const winMessage = `Parabéns! Desafio concluído em ${moves} movimentos. Sua dedicação ao detalhe é impressionante!`;
+            
+            // Verifica e atualiza o recorde
+            if (bestScore == 0 || moves < bestScore) {
+                bestScore = moves;
+                localStorage.setItem('bestScoreChibi', bestScore);
+                bestDisplay.textContent = bestScore;
+
+                // Feedback visual melhorado para Recorde
+                alert(`✨ NOVO RECORDE! ✨\n${winMessage}`);
+            } else {
+                alert(winMessage);
+            }
+        }
+    }
+
+    // --- Inicialização e Event Listeners Globais ---
+
+    // Inicializa o tabuleiro quando o DOM estiver carregado
+    document.addEventListener('DOMContentLoaded', () => {
+      renderBoard();
+    });
+
+    // Evento de Reiniciar
+    restartButton.addEventListener('click', () => {
+      // Adiciona um fade out suave antes de renderizar
+      gameBoard.style.opacity = '0';
+      setTimeout(() => {
+          renderBoard();
+          gameBoard.style.opacity = '1'; // Fade in
+      }, 500);
+    });
+  </script>
+</body>
+</html>
